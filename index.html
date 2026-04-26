@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SA Pulse - Live Disaster & Events Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
     <style>
         * {
             margin: 0;
@@ -233,6 +235,74 @@
             transform-origin: center center;
             pointer-events: none;
         }
+        .search-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+        .search-input {
+            background: rgba(22,27,34,0.95);
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 13px;
+            padding: 6px 32px 6px 10px;
+            width: 200px;
+            outline: none;
+            transition: border-color 0.15s, width 0.2s;
+        }
+        .search-input:focus {
+            border-color: #58a6ff;
+            width: 260px;
+        }
+        .search-input::placeholder { color: #6e7681; }
+        .search-clear {
+            position: absolute;
+            right: 8px;
+            background: none;
+            border: none;
+            color: #6e7681;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 0;
+            display: none;
+        }
+        .search-results {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            width: 300px;
+            background: rgba(13,17,23,0.98);
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            z-index: 2000;
+            display: none;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .search-result-item {
+            padding: 9px 12px;
+            font-size: 12px;
+            color: #c9d1d9;
+            cursor: pointer;
+            border-bottom: 1px solid #21262d;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .search-result-item:last-child { border-bottom: none; }
+        .search-result-item:hover { background: rgba(88,166,255,0.1); color: #58a6ff; }
+        .search-result-item .result-type { color: #6e7681; font-size: 11px; margin-left: 6px; }
+        .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+            background-color: rgba(88,166,255,0.2) !important;
+        }
+        .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div {
+            background-color: rgba(88,166,255,0.5) !important;
+            color: #fff !important;
+            font-weight: bold;
+            font-size: 12px;
+        }
         @media (max-width: 768px) {
             .wa-panel {
                 width: calc(100% - 40px);
@@ -251,6 +321,11 @@
 <body>
     <div class="header">
         <div class="header-left">🌍 SA Pulse</div>
+        <div class="search-wrap" id="searchWrap">
+            <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search place..." autocomplete="off">
+            <button class="search-clear" id="searchClear" onclick="clearSearch()">✕</button>
+            <div class="search-results" id="searchResults"></div>
+        </div>
         <div>
             <div class="header-right">Live SA events — wildfires · floods · storms · earthquakes<span id="aircraftCount" style="color:#00c8ff;margin-left:12px">✈ 0</span><span id="vesselCount" style="color:#00ffb4;margin-left:12px">⛵ 0</span></div>
             <div class="header-update" id="lastUpdate">Loading...</div>
@@ -298,6 +373,7 @@
     <div class="status-bar" id="statusBar"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
     <script>
         // Initialize map
         const map = L.map('map', {
@@ -313,15 +389,32 @@
             subdomains: 'abcd'
         }).addTo(map);
 
-        // Layer groups
+        // Layer groups with clustering
+        const clusterOpts = {
+            maxClusterRadius: 60,
+            spiderfyOnMaxZoom: true,
+            showCoverageOnHover: false,
+            zoomToBoundsOnClick: true,
+            iconCreateFunction: function(cluster) {
+                const n = cluster.getChildCount();
+                const size = n < 10 ? 32 : n < 50 ? 38 : 44;
+                return L.divIcon({
+                    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:rgba(88,166,255,0.25);border:2px solid rgba(88,166,255,0.6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:bold;">${n}</div>`,
+                    className: '',
+                    iconSize: [size, size],
+                    iconAnchor: [size/2, size/2]
+                });
+            }
+        };
+
         const layers = {
-            wildfires: L.layerGroup().addTo(map),
-            events: L.layerGroup().addTo(map),
-            earthquakes: L.layerGroup().addTo(map),
+            wildfires: L.markerClusterGroup({...clusterOpts, maxClusterRadius: 40}).addTo(map),
+            events: L.markerClusterGroup(clusterOpts).addTo(map),
+            earthquakes: L.markerClusterGroup(clusterOpts).addTo(map),
             weather: L.layerGroup().addTo(map),
             provinces: L.layerGroup().addTo(map),
-            gdacs: L.layerGroup().addTo(map),
-            emsc: L.layerGroup().addTo(map),
+            gdacs: L.markerClusterGroup({...clusterOpts, maxClusterRadius: 80}).addTo(map),
+            emsc: L.markerClusterGroup(clusterOpts).addTo(map),
             aircraft: L.layerGroup().addTo(map),
             vessels: L.layerGroup().addTo(map)
         };
@@ -927,6 +1020,86 @@
             const arrow = document.getElementById('waArrow');
             body.classList.toggle('open');
             arrow.classList.toggle('open');
+        }
+
+        // Location search (Nominatim)
+        let searchTimer = null;
+        let searchMarker = null;
+
+        document.getElementById('searchInput').addEventListener('input', function() {
+            const q = this.value.trim();
+            const clear = document.getElementById('searchClear');
+            clear.style.display = q ? 'block' : 'none';
+            clearTimeout(searchTimer);
+            if (q.length < 2) { hideSearchResults(); return; }
+            searchTimer = setTimeout(() => doSearch(q), 400);
+        });
+
+        document.getElementById('searchInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') { clearSearch(); }
+            if (e.key === 'Enter') {
+                const first = document.querySelector('.search-result-item');
+                if (first) first.click();
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!document.getElementById('searchWrap').contains(e.target)) {
+                hideSearchResults();
+            }
+        });
+
+        // '/' key focuses search
+        document.addEventListener('keydown', function(e) {
+            if (e.key === '/' && e.target.tagName !== 'INPUT') {
+                e.preventDefault();
+                document.getElementById('searchInput').focus();
+            }
+        });
+
+        async function doSearch(q) {
+            try {
+                const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1`;
+                const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+                const results = await res.json();
+                showSearchResults(results);
+            } catch(e) { hideSearchResults(); }
+        }
+
+        function showSearchResults(results) {
+            const box = document.getElementById('searchResults');
+            if (!results.length) { box.style.display = 'none'; return; }
+            box.innerHTML = results.map(r => {
+                const name = r.display_name.split(',').slice(0,3).join(', ');
+                const type = r.type || r.class || '';
+                return `<div class="search-result-item" onclick="flyToResult(${r.lat}, ${r.lon}, '${name.replace(/'/g,"\\'")}')">
+                    ${name}<span class="result-type">${type}</span>
+                </div>`;
+            }).join('');
+            box.style.display = 'block';
+        }
+
+        function hideSearchResults() {
+            document.getElementById('searchResults').style.display = 'none';
+        }
+
+        function flyToResult(lat, lon, name) {
+            lat = parseFloat(lat); lon = parseFloat(lon);
+            map.flyTo([lat, lon], 10, { duration: 0.8 });
+            if (searchMarker) map.removeLayer(searchMarker);
+            searchMarker = L.circleMarker([lat, lon], {
+                radius: 10, fillColor: '#58a6ff', color: '#fff',
+                weight: 2, fillOpacity: 0.8
+            }).addTo(map).bindPopup(`📍 ${name}`).openPopup();
+            document.getElementById('searchInput').value = name;
+            hideSearchResults();
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchClear').style.display = 'none';
+            hideSearchResults();
+            if (searchMarker) { map.removeLayer(searchMarker); searchMarker = null; }
         }
     </script>
 </body>
