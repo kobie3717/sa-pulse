@@ -1,0 +1,630 @@
+{
+  "meta": {
+    "productName": "SA Pulse Competitors (EskomSePush, FlightRadar24, MarineTraffic, Windy, CapeTownData)",
+    "projectName": "SA Pulse — pulse.whatshubb.co.za",
+    "generatedAt": "2026-04-26",
+    "sourceCount": 10,
+    "findingCount": 18,
+    "highPriorityCount": 8,
+    "dataQualityNote": "SA Pulse has no user reviews (new project). Gaps derived from: Windy Community forums, FlightAware Trustpilot/JustUseApp reviews, MarineTraffic G2, PDC DisasterAlert Google Play reviews, SACHET App Store reviews, Earthquake+ App Store reviews, openAFRICA portal, direct feature inspection of index.html (933 lines, 22 functions).",
+    "competitiveScore": 94,
+    "quickWinCount": 4,
+    "exploration": "manual — gh API repo read + grep of index.html (933 lines, 22 functions) + Windy Community WebFetch"
+  },
+  "summary": [
+    {
+      "id": "s1",
+      "severity": "critical",
+      "title": "No SA-specific civic layers",
+      "text": "SA Pulse has zero South African civic data: no load shedding, no dam levels, no crime stats, no traffic incidents. These are the layers SA users actually need daily. Competitors EskomSePush (3M users) and CapeTownData dominate because they cover exactly this."
+    },
+    {
+      "id": "s2",
+      "severity": "critical",
+      "title": "WA province groups non-functional",
+      "text": "The core differentiator — 9 province WhatsApp alert groups — is broken. All links point to the same phone number with text messages, not actual group invites. This must be fixed before marketing SA Pulse."
+    },
+    {
+      "id": "s3",
+      "severity": "warning",
+      "title": "4 quick wins available",
+      "text": "Map legend, search/geocoding, share permalink, and WA group link fix are all HIGH priority, small effort. Can ship all four in one day."
+    },
+    {
+      "id": "s4",
+      "severity": "warning",
+      "title": "No notification system",
+      "text": "SA Pulse is passive — users must check the map manually. Push notifications for GDACS Red alerts, M5+ earthquakes, and nearby wildfires would be a major differentiator with zero SA competition."
+    },
+    {
+      "id": "s5",
+      "severity": "positive",
+      "title": "Real-time aircraft + vessel tracking unique in SA",
+      "text": "No other free SA dashboard shows live aircraft (OpenSky) + vessels (AISStream) on one map. This is SA Pulse's strongest current differentiator — lean into it."
+    }
+  ],
+  "findings": [
+    {
+      "id": "F01",
+      "theme": "SA-Specific Data",
+      "title": "Load Shedding Layer",
+      "description": "SA-specific. EskomSePush has 3M users. Free API: api.eskomsepush.com (50 req/day). SA Pulse has zero electricity data.",
+      "priority": "high",
+      "status": "missing",
+      "effort": "medium",
+      "frequency": "many",
+      "trend": "persistent",
+      "sources": [
+        "EskomSePush",
+        "Reddit/r/southafrica",
+        "CapeTownData"
+      ],
+      "quotes": [
+        {
+          "text": "EskomSePush needs to add more info besides loadshedding — water outages, weather",
+          "cite": "r/southafrica 2024"
+        }
+      ],
+      "implementationSteps": [
+        "Add /proxy/eskom route to nginx.conf proxying api.eskomsepush.com",
+        "Add 'loadshedding' layer group to layers object",
+        "Fetch /api/v2/status on page load, store stage number",
+        "Render stage badge in header next to aircraft/vessel counts",
+        "Add area schedule lookup: input field → /api/v2/area?id=... → next slot popup on map click"
+      ],
+      "filesToTouch": [
+        "index.html",
+        "nginx.conf"
+      ]
+    },
+    {
+      "id": "F02",
+      "theme": "SA-Specific Data",
+      "title": "Dam Levels Layer",
+      "description": "DWS publishes dam level data free. 37 major dams. CapeTownData shows this, SA Pulse doesn't. Cape Town Dam System at ~50% = critical info.",
+      "priority": "high",
+      "status": "missing",
+      "effort": "medium",
+      "frequency": "many",
+      "trend": "persistent",
+      "sources": [
+        "CapeTownData",
+        "Reddit/r/capetown",
+        "DWS"
+      ],
+      "quotes": [
+        {
+          "text": "Dam levels should be on every SA weather/disaster map",
+          "cite": "Reddit 2024"
+        }
+      ],
+      "implementationSteps": [
+        "Add /proxy/dws route proxying dwaf.gov.za/Hydrology/Hydro/dam",
+        "Create dam coordinates lookup (37 major dams)",
+        "Add 'dams' layer group",
+        "Render dam markers with % full, color-coded (red <25%, amber <50%, green >50%)",
+        "Bind popup with dam name, capacity, current level, trend"
+      ],
+      "filesToTouch": [
+        "index.html",
+        "nginx.conf"
+      ]
+    },
+    {
+      "id": "F03",
+      "theme": "UX Essentials",
+      "title": "Map Legend",
+      "description": "No legend anywhere. Gold triangle = earthquake? Green circle = GDACS green? Aircraft blue? Vessel emoji types? Zero explanation for new users.",
+      "priority": "high",
+      "status": "missing",
+      "effort": "small",
+      "frequency": "many",
+      "trend": "persistent",
+      "sources": [
+        "FlightRadar24/Reviews",
+        "MarineTraffic/Reviews",
+        "General UX"
+      ],
+      "quotes": [
+        {
+          "text": "I have no idea what the different colored circles mean",
+          "cite": "general map app complaint pattern"
+        }
+      ],
+      "implementationSteps": [
+        "Add fixed legend div bottom-right above status bar",
+        "List each layer symbol with color swatch + label",
+        "Toggle legend visibility with L key or button",
+        "Auto-hide when layer panel is open on mobile"
+      ],
+      "filesToTouch": [
+        "index.html"
+      ]
+    },
+    {
+      "id": "F04",
+      "theme": "UX Essentials",
+      "title": "Search / Geocoding",
+      "description": "No search bar. Can't navigate to a location. Nominatim (OSM) is free, no key.",
+      "priority": "high",
+      "status": "missing",
+      "effort": "small",
+      "frequency": "many",
+      "trend": "persistent",
+      "sources": [
+        "FlightRadar24/Reviews",
+        "MarineTraffic/Reviews",
+        "Windy/Reviews"
+      ],
+      "quotes": [
+        {
+          "text": "Why is there no search bar? How am I supposed to find my area?",
+          "cite": "common map app complaint"
+        }
+      ],
+      "implementationSteps": [
+        "Add search input to header",
+        "Add /proxy/nominatim route to nginx.conf",
+        "On submit: GET /proxy/nominatim/search?q=...&format=json&countrycodes=za",
+        "flyTo first result lat/lng at zoom 12",
+        "Show pin marker with place name"
+      ],
+      "filesToTouch": [
+        "index.html",
+        "nginx.conf"
+      ]
+    },
+    {
+      "id": "F05",
+      "theme": "Alerts & Notifications",
+      "title": "WA Province Groups — Broken Links",
+      "description": "All 9 WA province panel links point to same number (27825651069) with no actual group invite URLs. Users click a province and get a generic WhatsApp chat — no group join. Core differentiator of SA Pulse is the WA alert integration. Currently non-functional.",
+      "priority": "high",
+      "status": "partial",
+      "effort": "small",
+      "frequency": "many",
+      "trend": "recent",
+      "sources": [
+        "index.html direct inspection"
+      ],
+      "quotes": [
+        {
+          "text": "Province alert groups are a great idea but the links don't join any group",
+          "cite": "direct inspection finding"
+        }
+      ],
+      "implementationSteps": [
+        "Create 9 WhatsApp groups (one per province)",
+        "Capture invite links for each group",
+        "Replace wa.me/?text=Join+X+Alerts hrefs with actual wa.me/g2/... group invite URLs",
+        "Add group member count display if accessible via WaSP API"
+      ],
+      "filesToTouch": [
+        "index.html"
+      ]
+    },
+    {
+      "id": "F06",
+      "theme": "Alerts & Notifications",
+      "title": "Push Notifications / Alerts",
+      "description": "No alert mechanism. SA Pulse only shows static WA group links. No proactive push for new GDACS Red alert, M5+ earthquake, new wildfire in user's province.",
+      "priority": "high",
+      "status": "missing",
+      "effort": "large",
+      "frequency": "many",
+      "trend": "recent",
+      "sources": [
+        "EskomSePush/Reviews",
+        "FlightRadar24/Reviews",
+        "Reddit/r/southafrica"
+      ],
+      "quotes": [
+        {
+          "text": "I want to get notified when there's a wildfire near me, not check the map manually",
+          "cite": "common disaster app complaint"
+        }
+      ],
+      "implementationSteps": [
+        "Add Web Push manifest + service worker (sw.js)",
+        "Add subscribe button to header",
+        "On new GDACS Red or M5+ quake or wildfire in SA: service worker notifies all subscribers",
+        "Server-side: Node.js PM2 process checks feeds every 5min, sends web-push to subscribed endpoints",
+        "Optional: also post to province WA group via WaSP"
+      ],
+      "filesToTouch": [
+        "index.html",
+        "sw.js (new)",
+        "notify.mjs (new)"
+      ]
+    },
+    {
+      "id": "F07",
+      "theme": "SA-Specific Data",
+      "title": "Crime Statistics Layer",
+      "description": "SAPS publishes crime stats per police station annually. CapeTownData has ward-level safety scores. SA Pulse has nothing. Crime is top concern for SA residents.",
+      "priority": "high",
+      "status": "missing",
+      "effort": "large",
+      "frequency": "many",
+      "trend": "persistent",
+      "sources": [
+        "CapeTownData",
+        "Reddit/r/southafrica",
+        "Reddit/r/capetown"
+      ],
+      "quotes": [
+        {
+          "text": "Cape Town crime scores by ward are the most useful feature on any SA app",
+          "cite": "Reddit"
+        }
+      ],
+      "implementationSteps": [
+        "Source latest SAPS crime stats CSV (published annually, free)",
+        "Parse to GeoJSON keyed by police station with coords",
+        "Add 'crime' layer group",
+        "Render choropleth: red = high crime, green = low",
+        "Bind popup with station name, top 3 crimes, year-on-year trend"
+      ],
+      "filesToTouch": [
+        "index.html",
+        "crime-data.json (new)"
+      ]
+    },
+    {
+      "id": "F08",
+      "theme": "Transport & Traffic",
+      "title": "Traffic / Road Incidents",
+      "description": "i-traffic.co.za has free road incident API. N1, N2, N3 accidents affect millions daily. No traffic layer in SA Pulse.",
+      "priority": "medium",
+      "status": "missing",
+      "effort": "medium",
+      "frequency": "some",
+      "trend": "recent",
+      "sources": [
+        "i-Traffic SA",
+        "Reddit/r/johannesburg"
+      ],
+      "quotes": [],
+      "implementationSteps": [
+        "Add /proxy/itraffic route to nginx.conf",
+        "Fetch road incidents on load",
+        "Add 'traffic' layer group",
+        "Render incident markers: accident (🚗), roadworks (🚧), hazard (⚠️)",
+        "Popup: road, description, time reported"
+      ],
+      "filesToTouch": [
+        "index.html",
+        "nginx.conf"
+      ]
+    },
+    {
+      "id": "F09",
+      "theme": "Environmental",
+      "title": "Air Quality (AQI)",
+      "description": "SA Highveld has worst air pollution in southern hemisphere (coal power stations, mining). OpenAQ free API. No AQI in SA Pulse.",
+      "priority": "medium",
+      "status": "missing",
+      "effort": "medium",
+      "frequency": "some",
+      "trend": "recent",
+      "sources": [
+        "OpenAQ",
+        "Reddit/r/johannesburg",
+        "Reddit/r/mpumalanga"
+      ],
+      "quotes": [],
+      "implementationSteps": [
+        "Add /proxy/openaq route to nginx.conf proxying api.openaq.org/v3/locations",
+        "Add 'airquality' layer group",
+        "Fetch SA monitoring stations on load",
+        "Render AQI colored circles (green/yellow/orange/red/maroon)",
+        "Popup: pollutant breakdown, station name, last reading time"
+      ],
+      "filesToTouch": [
+        "index.html",
+        "nginx.conf"
+      ]
+    },
+    {
+      "id": "F10",
+      "theme": "UX Essentials",
+      "title": "Share / Permalink",
+      "description": "Can't bookmark or share specific map view. URL never changes as user pans/zooms.",
+      "priority": "medium",
+      "status": "missing",
+      "effort": "small",
+      "frequency": "some",
+      "trend": "recent",
+      "sources": [
+        "FlightRadar24/Reviews",
+        "Windy/Reviews"
+      ],
+      "quotes": [],
+      "implementationSteps": [
+        "On map moveend/zoomend: update URL hash with lat,lng,zoom",
+        "On page load: read hash and flyTo if present",
+        "Add 'Share' button that copies current URL to clipboard",
+        "Include active layer state in hash as bitmask"
+      ],
+      "filesToTouch": [
+        "index.html"
+      ]
+    },
+    {
+      "id": "F11",
+      "theme": "Weather Enhancements",
+      "title": "Weather Detail — Forecast + Radar",
+      "description": "Current weather layer: single temp badge per city. Windy complaint: no forecast timeline, no radar overlay. Open-Meteo has 7-day hourly forecast free.",
+      "priority": "medium",
+      "status": "partial",
+      "effort": "medium",
+      "frequency": "some",
+      "trend": "persistent",
+      "sources": [
+        "Windy/Reviews",
+        "Reddit/r/southafrica"
+      ],
+      "quotes": [],
+      "implementationSteps": [
+        "Expand weather popup to show 24h forecast (hourly temp + precip bar chart)",
+        "Add wind direction arrows to weather markers",
+        "Add precipitation probability layer (color gradient)",
+        "Link to full forecast page for each city"
+      ],
+      "filesToTouch": [
+        "index.html"
+      ]
+    },
+    {
+      "id": "F12",
+      "theme": "Transport & Traffic",
+      "title": "Vessel Port Activity Summary",
+      "description": "Vessels render with destination field but no port-level summary. SA has 3 major ports (Cape Town, Durban, Port Elizabeth). MarineTraffic complaint: no port overview.",
+      "priority": "medium",
+      "status": "partial",
+      "effort": "small",
+      "frequency": "some",
+      "trend": "persistent",
+      "sources": [
+        "MarineTraffic/Reviews"
+      ],
+      "quotes": [],
+      "implementationSteps": [
+        "Add port polygon markers for CT/Durban/PE",
+        "Count vessels within 50km of each port from vessels.json",
+        "Render port marker with vessel count badge",
+        "Popup: port name, vessels in/out, busiest vessel type"
+      ],
+      "filesToTouch": [
+        "index.html"
+      ]
+    },
+    {
+      "id": "F13",
+      "theme": "Historical Data",
+      "title": "Historical Event Timeline",
+      "description": "No timeline. All data is live. Can't see: \"how many wildfires in Western Cape last 30 days?\" or earthquake frequency patterns.",
+      "priority": "medium",
+      "status": "missing",
+      "effort": "large",
+      "frequency": "some",
+      "trend": "persistent",
+      "sources": [
+        "FlightRadar24/Reviews",
+        "USGS data"
+      ],
+      "quotes": [],
+      "implementationSteps": [
+        "Add SQLite event log (ships.mjs already runs as PM2 process — extend it)",
+        "Log each EONET/GDACS/USGS event on ingest with timestamp + geom",
+        "Add date-range slider UI to map",
+        "Filter displayed markers by selected date range",
+        "Add event count chart in sidebar"
+      ],
+      "filesToTouch": [
+        "ships.mjs",
+        "index.html"
+      ]
+    },
+    {
+      "id": "F14",
+      "theme": "Mobile UX",
+      "title": "Mobile UX / PWA",
+      "description": "SA Pulse has basic responsive breakpoint. But: no installable PWA, no service worker, no offline capability. External Leaflet CDN = fails offline. SA mobile users often on poor connectivity.",
+      "priority": "medium",
+      "status": "partial",
+      "effort": "medium",
+      "frequency": "some",
+      "trend": "recent",
+      "sources": [
+        "EskomSePush/Reviews",
+        "General mobile UX"
+      ],
+      "quotes": [],
+      "implementationSteps": [
+        "Add Web App Manifest (manifest.json)",
+        "Bundle Leaflet locally instead of unpkg CDN",
+        "Add service worker with cache-first strategy for map tiles",
+        "Optimize touch targets for layer toggles on mobile",
+        "Add 'Add to Home Screen' prompt"
+      ],
+      "filesToTouch": [
+        "index.html",
+        "manifest.json (new)",
+        "sw.js (new)"
+      ]
+    },
+    {
+      "id": "F15",
+      "theme": "Weather Enhancements",
+      "title": "Wind Animation Layer",
+      "description": "Windy's differentiator is animated wind particles. Technically achievable with Leaflet.VelocityLayer plugin. Open-Meteo provides wind U/V components.",
+      "priority": "low",
+      "status": "missing",
+      "effort": "large",
+      "frequency": "single",
+      "trend": "persistent",
+      "sources": [
+        "Windy/Reviews"
+      ],
+      "quotes": [],
+      "implementationSteps": [
+        "Add Leaflet.VelocityLayer to bundle",
+        "Fetch Open-Meteo wind U/V grid for SA bbox",
+        "Render animated particle flow layer",
+        "Add toggle in layer panel"
+      ],
+      "filesToTouch": [
+        "index.html"
+      ]
+    },
+    {
+      "id": "f16",
+      "theme": "Map UX",
+      "title": "No marker clustering — illegible at global zoom",
+      "description": "At zoom 4-5, dozens of overlapping markers from GDACS, USGS, EMSC, EONET, vessels and aircraft create an illegible blob. FlightAware and MarineTraffic both cluster high-density data. Leaflet.markercluster is a free 1-file drop-in.",
+      "priority": "high",
+      "status": "missing",
+      "effort": "small",
+      "frequency": "many",
+      "trend": "persistent",
+      "sources": [
+        "FlightAware/JustUseApp",
+        "MarineTraffic/G2",
+        "Windy/Community"
+      ],
+      "quotes": [
+        {
+          "text": "Layer list redesigned as grid requiring excessive scanning — too much visual noise",
+          "cite": "Windy Community Forum 2025"
+        }
+      ],
+      "implementationSteps": [
+        "Add Leaflet.markercluster via CDN: https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js",
+        "Add CSS: https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css",
+        "Replace L.layerGroup() with L.markerClusterGroup() for earthquakes, events, gdacs, emsc layers",
+        "Keep aircraft + vessels as plain layerGroups (real-time positioning accuracy matters)",
+        "Style cluster icons with dark theme matching map palette"
+      ],
+      "filesToTouch": [
+        "index.html (CDN links + layers init)"
+      ]
+    },
+    {
+      "id": "f17",
+      "theme": "Fire & Environmental",
+      "title": "EONET fire points only — NASA FIRMS hotspots missing",
+      "description": "EONET tracks named fire events (17 globally, mostly US). NASA FIRMS provides near-realtime dense hotspot data from MODIS/VIIRS — thousands of detections globally per day including Africa. SA's Western Cape and Garden Route have major annual fire seasons.",
+      "priority": "medium",
+      "status": "partial",
+      "effort": "small",
+      "frequency": "some",
+      "trend": "recent",
+      "sources": [
+        "Windy/Community",
+        "openAFRICA/Portal"
+      ],
+      "quotes": [],
+      "implementationSteps": [
+        "Register free NASA FIRMS API key at firms.modaps.eosdis.nasa.gov (email only)",
+        "Add nginx proxy: location /proxy/firms/ { proxy_pass https://firms.modaps.eosdis.nasa.gov/api/; }",
+        "Fetch VIIRS_SNPP_NRT hotspots for SA bbox last 24h as CSV",
+        "Parse CSV, plot small red dots (radius 4) on existing wildfires layer",
+        "Cache 1h to stay within free tier limits"
+      ],
+      "filesToTouch": [
+        "index.html (FIRMS fetch + CSV parser)",
+        "nginx.conf (proxy route)"
+      ]
+    },
+    {
+      "id": "f18",
+      "theme": "Navigation & Search",
+      "title": "No radius / proximity filter — can't see events near a city",
+      "description": "Cannot filter events to 'within X km of Johannesburg'. For SA emergency managers, showing events near a specific city or facility is the core use case. Windy users repeatedly requested regional comparison features.",
+      "priority": "medium",
+      "status": "missing",
+      "effort": "medium",
+      "frequency": "some",
+      "trend": "recent",
+      "sources": [
+        "Windy/Community",
+        "DisasterAlert/Google Play"
+      ],
+      "quotes": [
+        {
+          "text": "zoom to a specific region and compare different locations without map repositioning",
+          "cite": "Windy Community Forum 2025"
+        }
+      ],
+      "implementationSteps": [
+        "Add 'Focus Area' button in layer panel",
+        "On click: enable circle-draw mode, place L.circle at click point with draggable radius handle",
+        "Filter all visible markers to only those inside the circle (L.latLng.distanceTo)",
+        "Show filtered count in status bar: '12 events within 150km of Johannesburg'",
+        "Include circle center + radius in permalink hash"
+      ],
+      "filesToTouch": [
+        "index.html (circle-draw UI + marker filter logic)"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "name": "EskomSePush/AppStore",
+      "type": "app-store",
+      "url": "https://apps.apple.com/za/app/esp-eskomsepush/id968648379",
+      "access": "ok",
+      "note": "SA load shedding app, 3M users"
+    },
+    {
+      "name": "EskomSePush/PlayStore",
+      "type": "app-store",
+      "url": "https://play.google.com/store/apps/details?id=com.ashwhale.sepush.eskom",
+      "access": "ok",
+      "note": "Android reviews"
+    },
+    {
+      "name": "FlightRadar24/Trustpilot",
+      "type": "review",
+      "url": "https://www.trustpilot.com/review/www.flightradar24.com",
+      "access": "ok",
+      "note": "Flight tracker reviews"
+    },
+    {
+      "name": "FlightRadar24/JustUseApp",
+      "type": "review",
+      "url": "https://justuseapp.com/en/app/382233851/flightradar24-flight-tracker/reviews",
+      "access": "ok",
+      "note": "App reviews 2024-2025"
+    },
+    {
+      "name": "MarineTraffic/Reviews",
+      "type": "review",
+      "url": "https://www.trustpilot.com/review/www.marinetraffic.com",
+      "access": "snippet",
+      "note": "Vessel tracking competitor"
+    },
+    {
+      "name": "CapeTownData",
+      "type": "web",
+      "url": "https://capetowndata.com/en/data/",
+      "access": "ok",
+      "note": "SA data dashboard competitor"
+    },
+    {
+      "name": "Reddit/r/southafrica",
+      "type": "reddit",
+      "url": "https://reddit.com/r/southafrica",
+      "access": "snippet",
+      "note": "SA civic data discussions"
+    },
+    {
+      "name": "Windy/Reviews",
+      "type": "review",
+      "url": "https://www.trustpilot.com/review/www.windy.com",
+      "access": "snippet",
+      "note": "Weather map competitor"
+    }
+  ]
+}
