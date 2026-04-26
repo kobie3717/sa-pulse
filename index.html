@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SA Pulse - Live Disaster & Events Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            overflow: hidden;
+        }
+        #map {
+            position: absolute;
+            top: 50px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+        }
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 50px;
+            background: rgba(13, 17, 23, 0.95);
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .header-left {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .header-right {
+            font-size: 12px;
+            color: #8b949e;
+        }
+        .header-update {
+            font-size: 10px;
+            color: #6e7681;
+            margin-top: 2px;
+        }
+        .wa-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 300px;
+            background: rgba(13, 17, 23, 0.95);
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .wa-panel-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 15px;
+            cursor: pointer;
+            user-select: none;
+            color: #58a6ff;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .wa-panel-toggle:hover {
+            background: rgba(88, 166, 255, 0.08);
+            border-radius: 8px;
+        }
+        .wa-panel-arrow {
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+        .wa-panel-arrow.open {
+            transform: rotate(180deg);
+        }
+        .wa-panel-body {
+            display: none;
+            padding: 0 15px 15px;
+            max-height: 320px;
+            overflow-y: auto;
+        }
+        .wa-panel-body.open {
+            display: block;
+        }
+        .wa-panel a {
+            display: block;
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            background: rgba(48, 54, 61, 0.5);
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            color: #c9d1d9;
+            text-decoration: none;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .wa-panel a:hover {
+            background: rgba(48, 54, 61, 0.8);
+            border-color: #58a6ff;
+        }
+        .layer-panel {
+            position: fixed;
+            top: 60px;
+            right: 10px;
+            width: 220px;
+            background: rgba(13, 17, 23, 0.95);
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .layer-panel-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            cursor: pointer;
+            user-select: none;
+            color: #58a6ff;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 8px;
+        }
+        .layer-panel-toggle:hover {
+            background: rgba(88, 166, 255, 0.08);
+        }
+        .layer-panel-arrow {
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+        .layer-panel-arrow.open {
+            transform: rotate(180deg);
+        }
+        .layer-panel-body {
+            display: none;
+            padding: 4px 10px 12px;
+        }
+        .layer-panel-body.open {
+            display: block;
+        }
+        .layer-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #c9d1d9;
+            transition: background 0.15s;
+            user-select: none;
+        }
+        .layer-item:hover {
+            background: rgba(48, 54, 61, 0.6);
+        }
+        .layer-item input[type="checkbox"] {
+            accent-color: #58a6ff;
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .status-bar {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(13, 17, 23, 0.95);
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 10px 15px;
+            z-index: 1000;
+            font-size: 11px;
+            color: #8b949e;
+            max-width: 250px;
+        }
+        .status-error {
+            color: #f85149;
+            margin-top: 4px;
+        }
+        .leaflet-control-layers {
+            display: none !important;
+        }
+        .leaflet-popup-content-wrapper {
+            background: #161b22;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+        }
+        .leaflet-popup-content {
+            margin: 12px;
+        }
+        .leaflet-popup-content b {
+            color: #58a6ff;
+        }
+        .leaflet-popup-content a {
+            color: #58a6ff;
+        }
+        .leaflet-popup-tip {
+            background: #161b22;
+            border: 1px solid #30363d;
+        }
+        .aircraft-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            filter: drop-shadow(0 0 3px rgba(0,200,255,0.8));
+            transform-origin: center center;
+            pointer-events: none;
+        }
+        .aircraft-icon.on-ground {
+            filter: drop-shadow(0 0 3px rgba(255,200,0,0.8));
+            opacity: 0.7;
+        }
+        .vessel-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            filter: drop-shadow(0 0 3px rgba(0,255,180,0.8));
+            transform-origin: center center;
+            pointer-events: none;
+        }
+        @media (max-width: 768px) {
+            .wa-panel {
+                width: calc(100% - 40px);
+                left: 20px;
+                right: 20px;
+            }
+            .wa-panel-body {
+                max-height: 200px;
+            }
+            .header-right {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">🌍 SA Pulse</div>
+        <div>
+            <div class="header-right">Live SA events — wildfires · floods · storms · earthquakes<span id="aircraftCount" style="color:#00c8ff;margin-left:12px">✈ 0</span><span id="vesselCount" style="color:#00ffb4;margin-left:12px">⛵ 0</span></div>
+            <div class="header-update" id="lastUpdate">Loading...</div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="wa-panel">
+        <div class="wa-panel-toggle" onclick="toggleWaPanel()">
+            <span>📱 Join Province Alert Group</span>
+            <span class="wa-panel-arrow" id="waArrow">▼</span>
+        </div>
+        <div class="wa-panel-body" id="waPanelBody">
+            <a href="https://wa.me/27825651069?text=Join+Western+Cape+Alerts" target="_blank">🌿 Western Cape</a>
+            <a href="https://wa.me/27825651069?text=Join+Eastern+Cape+Alerts" target="_blank">🌊 Eastern Cape</a>
+            <a href="https://wa.me/27825651069?text=Join+Northern+Cape+Alerts" target="_blank">🏜️ Northern Cape</a>
+            <a href="https://wa.me/27825651069?text=Join+North+West+Alerts" target="_blank">🌾 North West</a>
+            <a href="https://wa.me/27825651069?text=Join+Free+State+Alerts" target="_blank">🌻 Free State</a>
+            <a href="https://wa.me/27825651069?text=Join+Gauteng+Alerts" target="_blank">🏙️ Gauteng</a>
+            <a href="https://wa.me/27825651069?text=Join+Limpopo+Alerts" target="_blank">🦁 Limpopo</a>
+            <a href="https://wa.me/27825651069?text=Join+Mpumalanga+Alerts" target="_blank">🌄 Mpumalanga</a>
+            <a href="https://wa.me/27825651069?text=Join+KwaZulu-Natal+Alerts" target="_blank">🌴 KwaZulu-Natal</a>
+        </div>
+    </div>
+
+    <div class="layer-panel" id="layerPanel">
+        <div class="layer-panel-toggle" onclick="toggleLayerPanel()">
+            <span>🗂️ Layers</span>
+            <span class="layer-panel-arrow" id="layerArrow">▼</span>
+        </div>
+        <div class="layer-panel-body" id="layerPanelBody">
+            <label class="layer-item"><input type="checkbox" checked onchange="toggleLayer('weather', this.checked)"> 🌡️ Weather</label>
+            <label class="layer-item"><input type="checkbox" checked onchange="toggleLayer('wildfires', this.checked)"> 🔥 Wildfires</label>
+            <label class="layer-item"><input type="checkbox" checked onchange="toggleLayer('events', this.checked)"> 🌊 Floods &amp; Storms</label>
+            <label class="layer-item"><input type="checkbox" checked onchange="toggleLayer('earthquakes', this.checked)"> 🌍 Quakes (USGS)</label>
+            <label class="layer-item"><input type="checkbox" checked onchange="toggleLayer('emsc', this.checked)"> 🌍 Quakes (EMSC)</label>
+            <label class="layer-item"><input type="checkbox" checked onchange="toggleLayer('gdacs', this.checked)"> ⚠️ GDACS Disasters</label>
+            <label class="layer-item"><input type="checkbox" checked onchange="toggleLayer('aircraft', this.checked)"> ✈ Aircraft</label>
+            <label class="layer-item"><input type="checkbox" checked onchange="toggleLayer('vessels', this.checked)"> ⛵ Vessels</label>
+            <label class="layer-item"><input type="checkbox" checked onchange="toggleLayer('provinces', this.checked)"> 🗺️ Provinces</label>
+        </div>
+    </div>
+
+    <div class="status-bar" id="statusBar"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map
+        const map = L.map('map', {
+            center: [-29, 25],
+            zoom: 6,
+            minZoom: 4,
+            maxZoom: 14
+        });
+
+        // Add dark tile layer
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd'
+        }).addTo(map);
+
+        // Layer groups
+        const layers = {
+            wildfires: L.layerGroup().addTo(map),
+            events: L.layerGroup().addTo(map),
+            earthquakes: L.layerGroup().addTo(map),
+            weather: L.layerGroup().addTo(map),
+            provinces: L.layerGroup().addTo(map),
+            gdacs: L.layerGroup().addTo(map),
+            emsc: L.layerGroup().addTo(map),
+            aircraft: L.layerGroup().addTo(map),
+            vessels: L.layerGroup().addTo(map)
+        };
+
+        // Error tracking
+        const errors = [];
+
+        // Category colors
+        const categoryColors = {
+            severeStorms: '#ff8c00',
+            floods: '#4169e1',
+            drought: '#ffd700',
+            dustHaze: '#d2b48c',
+            volcanoes: '#9370db',
+            default: '#808080'
+        };
+
+        // World regions (bbox format: west,south,east,north)
+        const WORLD_REGIONS = [
+            { id: 'saf',  name: 'Southern Africa',     bbox: '10,-40,55,-10' },
+            { id: 'naf',  name: 'North Africa',        bbox: '-20,-10,55,40' },
+            { id: 'eur',  name: 'Europe',              bbox: '-15,35,45,72'  },
+            { id: 'mde',  name: 'Middle East',         bbox: '25,10,65,40'   },
+            { id: 'sas',  name: 'South/SE Asia',       bbox: '60,-15,145,35' },
+            { id: 'eas',  name: 'East Asia',           bbox: '100,20,150,55' },
+            { id: 'rus',  name: 'Russia/N Asia',       bbox: '25,45,180,75'  },
+            { id: 'aus',  name: 'Australia/Pacific',   bbox: '110,-50,180,-5'},
+            { id: 'nam',  name: 'North America',       bbox: '-170,10,-50,75'},
+            { id: 'sam',  name: 'South America',       bbox: '-85,-60,-30,15'},
+        ];
+
+        // Region cache and loading state
+        const fetchedRegions = new Set();
+        const loadingRegions = new Set();
+
+        // Helper functions
+        function bboxToLeafletBounds(bbox) {
+            const [w, s, e, n] = bbox.split(',').map(Number);
+            return L.latLngBounds([[s, w], [n, e]]);
+        }
+
+        function getVisibleRegions() {
+            const mapBounds = map.getBounds().pad(0.1); // 10% padding
+            return WORLD_REGIONS.filter(r => {
+                const rb = bboxToLeafletBounds(r.bbox);
+                return mapBounds.intersects(rb) && !fetchedRegions.has(r.id);
+            });
+        }
+
+        function eonetToUsgs(bbox) {
+            const [w, s, e, n] = bbox.split(',').map(Number);
+            return `minlongitude=${w}&minlatitude=${s}&maxlongitude=${e}&maxlatitude=${n}`;
+        }
+
+        function daysAgo(n) {
+            return new Date(Date.now() - n * 86400000).toISOString().split('T')[0];
+        }
+
+        function showRegionLoading(name) {
+            loadingRegions.add(name);
+            document.getElementById('statusBar').textContent = `Loading ${[...loadingRegions].join(', ')}...`;
+        }
+
+        function hideRegionLoading(name) {
+            loadingRegions.delete(name);
+            if (loadingRegions.size === 0) {
+                updateStatus(); // Back to normal status
+            } else {
+                document.getElementById('statusBar').textContent = `Loading ${[...loadingRegions].join(', ')}...`;
+            }
+        }
+
+        // Plot events (append, don't clear)
+        function plotEvents(events, layerName) {
+            const targetLayer = layerName === 'wildfires' ? layers.wildfires : layers.events;
+            const isWildfire = layerName === 'wildfires';
+
+            events.forEach(event => {
+                const geom = event.geometry;
+                if (!geom || !geom.length) return;
+                const coords = geom[geom.length - 1].coordinates;
+                const lng = coords[0];
+                const lat = coords[1];
+                const title = event.title;
+                const date = geom[geom.length - 1].date || 'Unknown';
+                const sources = event.sources || [];
+                const sourceUrl = sources.length > 0 ? sources[0].url : '#';
+
+                let color, fillColor;
+                if (isWildfire) {
+                    color = '#ff0000';
+                    fillColor = '#ff4444';
+                } else {
+                    const categories = event.categories || [];
+                    const categoryId = categories.length > 0 ? categories[0].id : 'default';
+                    color = categoryColors[categoryId] || categoryColors.default;
+                    fillColor = color;
+                }
+
+                const marker = L.circleMarker([lat, lng], {
+                    radius: 8,
+                    fillColor: fillColor,
+                    color: color,
+                    weight: 2,
+                    opacity: 0.8,
+                    fillOpacity: isWildfire ? 0.6 : 0.5
+                });
+
+                marker.bindPopup(`
+                    <b>${title}</b><br>
+                    📅 ${date}<br>
+                    📍 ${lat.toFixed(4)}, ${lng.toFixed(4)}<br>
+                    🔗 <a href="${sourceUrl}" target="_blank">View Source</a><br>
+                    <hr style="margin: 8px 0; border-color: #30363d;">
+                    <small>Join WA alert group below ↓</small>
+                `);
+
+                marker.addTo(targetLayer);
+            });
+        }
+
+        // Plot earthquakes (append, don't clear)
+        function plotQuakes(features) {
+            features.forEach(feature => {
+                const coords = feature.geometry.coordinates;
+                const lat = coords[1];
+                const lng = coords[0];
+                const mag = feature.properties.mag;
+                const title = feature.properties.place || 'Earthquake';
+                const time = new Date(feature.properties.time).toLocaleString();
+                const url = feature.properties.url || '#';
+
+                const size = 5 + (mag * 2);
+
+                const marker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        className: 'earthquake-marker',
+                        html: `<div style="width: 0; height: 0; border-left: ${size}px solid transparent; border-right: ${size}px solid transparent; border-bottom: ${size*1.7}px solid #ffd700; filter: drop-shadow(0 0 3px rgba(255,215,0,0.8));"></div>`,
+                        iconSize: [size*2, size*2],
+                        iconAnchor: [size, size*1.7]
+                    })
+                });
+
+                marker.bindPopup(`
+                    <b>${title}</b><br>
+                    📊 Magnitude: ${mag}<br>
+                    📅 ${time}<br>
+                    📍 ${lat.toFixed(4)}, ${lng.toFixed(4)}<br>
+                    🔗 <a href="${url}" target="_blank">View Source</a><br>
+                    <hr style="margin: 8px 0; border-color: #30363d;">
+                    <small>Join WA alert group below ↓</small>
+                `);
+
+                marker.addTo(layers.earthquakes);
+            });
+        }
+
+        // Plot GDACS disaster alerts (RSS feed)
+        function plotGdacs(xmlText) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(xmlText, 'application/xml');
+            const items = doc.querySelectorAll('item');
+            const gdacsNS = 'http://www.gdacs.org';
+            const georssNS = 'http://www.georss.org/georss';
+
+            items.forEach(item => {
+                const pointEl = item.getElementsByTagNameNS(georssNS, 'point')[0];
+                if (!pointEl) return;
+                const [lat, lon] = pointEl.textContent.trim().split(' ').map(Number);
+                if (isNaN(lat) || isNaN(lon)) return;
+
+                const title = item.querySelector('title')?.textContent || 'Unknown';
+                const link = item.querySelector('link')?.textContent || '#';
+                const alertLevel = item.getElementsByTagNameNS(gdacsNS, 'alertlevel')[0]?.textContent || 'Green';
+                const eventType = item.getElementsByTagNameNS(gdacsNS, 'eventtype')[0]?.textContent || '?';
+                const severity = item.getElementsByTagNameNS(gdacsNS, 'severity')[0]?.textContent || '';
+                const country = item.getElementsByTagNameNS(gdacsNS, 'country')[0]?.textContent || '';
+
+                const alertColors = { 'Red': '#ff2222', 'Orange': '#ff8800', 'Green': '#22cc44' };
+                const color = alertColors[alertLevel] || '#22cc44';
+
+                const typeEmoji = { 'EQ': '🌍', 'TC': '🌀', 'FL': '🌊', 'VO': '🌋', 'DR': '☀️', 'WF': '🔥' };
+                const emoji = typeEmoji[eventType] || '⚠️';
+
+                const marker = L.circleMarker([lat, lon], {
+                    radius: alertLevel === 'Red' ? 12 : alertLevel === 'Orange' ? 9 : 7,
+                    fillColor: color,
+                    color: color,
+                    weight: 2,
+                    opacity: 0.9,
+                    fillOpacity: 0.5
+                });
+
+                marker.bindPopup(`
+                    <b>${emoji} ${title}</b><br>
+                    🎯 Alert: <span style="color:${color};font-weight:bold">${alertLevel}</span><br>
+                    📊 ${severity}<br>
+                    🌍 ${country}<br>
+                    🔗 <a href="${link}" target="_blank">GDACS Report</a><br>
+                    <hr style="margin:8px 0;border-color:#30363d;">
+                    <small>Source: GDACS</small>
+                `);
+
+                layers.gdacs.addLayer(marker);
+            });
+        }
+
+        // Plot EMSC earthquakes
+        function plotEmsc(features) {
+            features.forEach(f => {
+                const props = f.properties;
+                const coords = f.geometry.coordinates;
+                const lon = coords[0], lat = coords[1];
+                const mag = props.mag;
+                const region = props.flynn_region || props.place || 'Unknown';
+                const time = props.time ? new Date(props.time).toUTCString() : 'Unknown';
+
+                const r = Math.max(4, Math.min(16, mag * 2));
+                const color = mag >= 6 ? '#ff2222' : mag >= 5 ? '#ff8800' : '#ffcc00';
+
+                const marker = L.circleMarker([lat, lon], {
+                    radius: r,
+                    fillColor: color,
+                    color: color,
+                    weight: 1.5,
+                    opacity: 0.85,
+                    fillOpacity: 0.45
+                });
+
+                marker.bindPopup(`
+                    <b>🌍 M${mag} Earthquake</b><br>
+                    📍 ${region}<br>
+                    📅 ${time}<br>
+                    🔗 <a href="https://www.seismicportal.eu/" target="_blank">EMSC</a><br>
+                    <hr style="margin:8px 0;border-color:#30363d;">
+                    <small>Source: EMSC</small>
+                `);
+
+                layers.emsc.addLayer(marker);
+            });
+        }
+
+        // Plot aircraft
+        function plotAircraft(states) {
+            layers.aircraft.clearLayers(); // Always replace (real-time positions)
+            let count = 0;
+
+            (states || []).forEach(s => {
+                const [icao24, callsign, origin, , , lon, lat, baroAlt, onGround, velocity, track] = s;
+                if (lat == null || lon == null) return;
+
+                const call = (callsign || icao24 || '?').trim();
+                const alt = baroAlt ? Math.round(baroAlt) : 0;
+                const vel = velocity ? Math.round(velocity * 1.852) : 0; // m/s → km/h
+                const hdg = track || 0;
+
+                const iconHtml = `<div class="aircraft-icon${onGround ? ' on-ground' : ''}" style="transform:rotate(${hdg}deg)">✈</div>`;
+
+                const icon = L.divIcon({
+                    html: iconHtml,
+                    className: '',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                });
+
+                const marker = L.marker([lat, lon], { icon });
+
+                const altStr = onGround ? '🛬 On ground' : `✈ ${alt}m (${Math.round(alt*3.281)}ft)`;
+                marker.bindPopup(`
+                    <b>✈ ${call}</b><br>
+                    🏳️ ${origin || 'Unknown'}<br>
+                    ${altStr}<br>
+                    💨 ${vel} km/h<br>
+                    🧭 Heading ${Math.round(hdg)}°<br>
+                    🔑 ${icao24}<br>
+                    <hr style="margin:8px 0;border-color:#30363d;">
+                    <small>Source: OpenSky Network</small>
+                `);
+
+                layers.aircraft.addLayer(marker);
+                count++;
+            });
+
+            // Update counter
+            const el = document.getElementById('aircraftCount');
+            if (el) el.textContent = `✈ ${count}`;
+        }
+
+        // Fetch events for a region
+        async function fetchRegionEvents(region) {
+            showRegionLoading(region.name);
+
+            try {
+                const [firesRes, eventsRes, quakesRes, emscRes] = await Promise.allSettled([
+                    fetch(`/proxy/eonet/events?bbox=${region.bbox}&status=open&days=60&limit=50&category=wildfires`),
+                    fetch(`/proxy/eonet/events?bbox=${region.bbox}&status=open&days=60&limit=100`),
+                    fetch(`/proxy/usgs/query?format=geojson&${eonetToUsgs(region.bbox)}&orderby=time&limit=50&starttime=${daysAgo(90)}`),
+                    fetch(`/proxy/emsc/query?format=json&${eonetToUsgs(region.bbox)}&minmag=3.5&orderby=time&limit=50&start=${daysAgo(30)}`)
+                ]);
+
+                // Process fires
+                if (firesRes.status === 'fulfilled') {
+                    const data = await firesRes.value.json();
+                    plotEvents(data.events || [], 'wildfires');
+                }
+
+                // Process other events (non-fire)
+                if (eventsRes.status === 'fulfilled') {
+                    const data = await eventsRes.value.json();
+                    const filtered = (data.events || []).filter(e => !e.categories.some(c => c.id === 'wildfires'));
+                    plotEvents(filtered, 'events');
+                }
+
+                // Process earthquakes
+                if (quakesRes.status === 'fulfilled') {
+                    const data = await quakesRes.value.json();
+                    plotQuakes(data.features || []);
+                }
+
+                // Process EMSC quakes
+                if (emscRes.status === 'fulfilled') {
+                    const data = await emscRes.value.json();
+                    plotEmsc(data.features || []);
+                }
+
+            } catch (e) {
+                console.error('Region fetch failed:', region.id, e);
+            } finally {
+                hideRegionLoading(region.name);
+            }
+        }
+
+        // Fetch and display provincial boundaries
+        async function loadProvinces() {
+            try {
+                const response = await fetch('/provinces.geojson');
+                const data = await response.json();
+                layers.provinces.clearLayers();
+                L.geoJSON(data, {
+                    style: {
+                        fillColor: 'transparent',
+                        fillOpacity: 0,
+                        color: '#ffffff',
+                        weight: 1,
+                        opacity: 0.3
+                    },
+                    onEachFeature: (feature, layer) => {
+                        if (feature.properties && feature.properties.name) {
+                            layer.bindTooltip(feature.properties.name, { permanent: false, className: 'province-tooltip' });
+                        }
+                    }
+                }).addTo(layers.provinces);
+            } catch (error) {
+                console.error('Failed to load provinces:', error);
+                errors.push('Provinces unavailable');
+            }
+        }
+
+        // Poll aircraft data
+        async function pollAircraft() {
+            try {
+                // SA + surrounding region bbox
+                const res = await fetch('/proxy/opensky/states/all?lamin=-37&lomin=12&lamax=-17&lomax=40');
+                if (!res.ok) return;
+                const data = await res.json();
+                plotAircraft(data.states);
+            } catch (e) {
+                console.error('OpenSky fetch failed:', e);
+            }
+        }
+
+        // Ship type → emoji
+        const shipTypeEmoji = (t) => {
+            if (!t) return '⛵';
+            if (t >= 60 && t < 70) return '🚢'; // passenger
+            if (t >= 70 && t < 80) return '🛳️'; // cargo
+            if (t >= 80 && t < 90) return '🛢️'; // tanker
+            if (t >= 30 && t < 40) return '🎣'; // fishing
+            if (t >= 50 && t < 60) return '⚓'; // tug/pilot
+            return '⛵';
+        };
+
+        function plotVessels(vesselList) {
+            layers.vessels.clearLayers();
+            let count = 0;
+
+            (vesselList || []).forEach(v => {
+                if (v.lat == null || v.lon == null) return;
+                const hdg = v.hdg || v.cog || 0;
+                const emoji = shipTypeEmoji(v.type);
+
+                const icon = L.divIcon({
+                    html: `<div class="vessel-icon" style="transform:rotate(${hdg}deg)">${emoji}</div>`,
+                    className: '',
+                    iconSize: [22, 22],
+                    iconAnchor: [11, 11]
+                });
+
+                const marker = L.marker([v.lat, v.lon], { icon });
+                const speed = v.sog != null ? `${v.sog.toFixed(1)} kn` : '?';
+                const age = v.ts ? Math.round((Date.now() - v.ts) / 60000) : '?';
+
+                marker.bindPopup(`
+                    <b>${emoji} ${v.name || v.mmsi}</b><br>
+                    🔢 MMSI: ${v.mmsi}<br>
+                    📡 ${v.callsign || '—'}<br>
+                    💨 ${speed} | 🧭 ${Math.round(hdg)}°<br>
+                    🏁 ${v.dest || 'Unknown destination'}<br>
+                    🕐 Updated ${age}min ago<br>
+                    <hr style="margin:8px 0;border-color:#30363d;">
+                    <small>Source: AISStream</small>
+                `);
+
+                layers.vessels.addLayer(marker);
+                count++;
+            });
+
+            const el = document.getElementById('vesselCount');
+            if (el) el.textContent = `⛵ ${count}`;
+        }
+
+        async function pollVessels() {
+            try {
+                const res = await fetch('/vessels.json');
+                if (!res.ok) return;
+                const data = await res.json();
+                plotVessels(data.vessels);
+            } catch (e) {
+                console.error('Vessels fetch failed:', e);
+            }
+        }
+
+        // Fetch and display weather for SA cities
+        async function loadWeather() {
+            const cities = [
+                { name: 'Cape Town',     lat: -33.9249, lng: 18.4241 },
+                { name: 'Johannesburg',  lat: -26.2041, lng: 28.0473 },
+                { name: 'Durban',        lat: -29.8587, lng: 31.0218 },
+                { name: 'Pretoria',      lat: -25.7479, lng: 28.2293 },
+                { name: 'Port Elizabeth',lat: -33.9608, lng: 25.6022 },
+                { name: 'Bloemfontein', lat: -29.0852, lng: 26.1596 },
+                { name: 'Polokwane',    lat: -23.9045, lng: 29.4688 },
+                { name: 'Nelspruit',    lat: -25.4753, lng: 30.9694 },
+                { name: 'George',       lat: -33.9646, lng: 22.4610 },
+                { name: 'Kimberley',    lat: -28.7323, lng: 24.7621 }
+            ];
+            const wmoEmoji = c => {
+                if (c === 0) return '☀️';
+                if (c <= 3) return '⛅';
+                if (c <= 48) return '🌫️';
+                if (c <= 55) return '🌦️';
+                if (c <= 65) return '🌧️';
+                if (c <= 77) return '❄️';
+                if (c <= 82) return '🌧️';
+                if (c <= 99) return '⛈️';
+                return '🌡️';
+            };
+            const wmoText = c => {
+                if (c === 0) return 'Clear sky';
+                if (c <= 3) return 'Partly cloudy';
+                if (c <= 48) return 'Foggy';
+                if (c <= 55) return 'Drizzle';
+                if (c <= 65) return 'Rain';
+                if (c <= 77) return 'Snow';
+                if (c <= 82) return 'Rain showers';
+                if (c <= 99) return 'Thunderstorm';
+                return 'Unknown';
+            };
+
+            layers.weather.clearLayers();
+
+            await Promise.all(cities.map(async city => {
+                try {
+                    const url = `/proxy/weather/forecast?latitude=${city.lat}&longitude=${city.lng}&current=weather_code,temperature_2m,wind_speed_10m,precipitation&timezone=Africa/Johannesburg`;
+                    const r = await fetch(url);
+                    const d = await r.json();
+                    const cur = d.current;
+                    const emoji = wmoEmoji(cur.weather_code);
+                    const icon = L.divIcon({
+                        className: '',
+                        html: `<div style="background:rgba(13,17,23,0.85);border:1px solid #30363d;border-radius:6px;padding:4px 7px;font-size:11px;color:#c9d1d9;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.5);">${emoji} <b style="color:#58a6ff">${city.name.split(' ')[0]}</b> ${Math.round(cur.temperature_2m)}°C</div>`,
+                        iconAnchor: [0, 0]
+                    });
+                    const marker = L.marker([city.lat, city.lng], { icon });
+                    marker.bindPopup(`
+                        <b>${city.name}</b><br>
+                        ${emoji} ${wmoText(cur.weather_code)}<br>
+                        🌡️ ${cur.temperature_2m}°C<br>
+                        💨 Wind: ${cur.wind_speed_10m} km/h<br>
+                        🌧️ Precip: ${cur.precipitation} mm
+                    `);
+                    marker.addTo(layers.weather);
+                } catch(e) { /* skip failed city */ }
+            }));
+        }
+
+        // Update status bar
+        function updateStatus() {
+            const now = new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('lastUpdate').textContent = `Last updated: ${now}`;
+
+            const statusBar = document.getElementById('statusBar');
+            if (loadingRegions.size > 0) {
+                statusBar.textContent = `Loading ${[...loadingRegions].join(', ')}...`;
+            } else if (errors.length > 0) {
+                statusBar.innerHTML = errors.map(err => `<div class="status-error">⚠️ ${err}</div>`).join('');
+            } else {
+                statusBar.textContent = 'All systems operational';
+            }
+        }
+
+        // Load all data (full refresh - clears everything)
+        async function loadAllData() {
+            errors.length = 0; // Clear errors
+
+            // Clear all event layers
+            layers.wildfires.clearLayers();
+            layers.events.clearLayers();
+            layers.earthquakes.clearLayers();
+            layers.gdacs.clearLayers();
+            layers.emsc.clearLayers();
+            layers.aircraft.clearLayers();
+            layers.vessels.clearLayers();
+
+            // Reset region cache
+            fetchedRegions.clear();
+
+            // Load SA-specific data
+            await Promise.all([
+                loadWeather(),
+                loadProvinces()
+            ]);
+
+            // Load events for visible regions
+            const visible = getVisibleRegions();
+            if (visible.length > 0) {
+                await Promise.all(visible.map(r => {
+                    fetchedRegions.add(r.id);
+                    return fetchRegionEvents(r);
+                }));
+            } else {
+                // If no regions visible, load SA by default
+                const saRegion = WORLD_REGIONS[0]; // Southern Africa
+                fetchedRegions.add(saRegion.id);
+                await fetchRegionEvents(saRegion);
+            }
+
+            // Fetch GDACS global feed (once, covers all regions)
+            fetch('/proxy/gdacs/rss.xml')
+                .then(r => r.text())
+                .then(plotGdacs)
+                .catch(e => console.error('GDACS fetch failed:', e));
+
+            updateStatus();
+        }
+
+        // Debounced moveend handler
+        let moveTimer = null;
+        map.on('moveend', () => {
+            clearTimeout(moveTimer);
+            moveTimer = setTimeout(() => {
+                const newRegions = getVisibleRegions();
+                if (newRegions.length > 0) {
+                    newRegions.forEach(r => {
+                        fetchedRegions.add(r.id); // Mark immediately to prevent double-fetch
+                        fetchRegionEvents(r);
+                    });
+                }
+            }, 600);
+        });
+
+        // Layer panel controls
+        function toggleLayerPanel() {
+            document.getElementById('layerPanelBody').classList.toggle('open');
+            document.getElementById('layerArrow').classList.toggle('open');
+        }
+
+        function toggleLayer(name, visible) {
+            if (visible) {
+                map.addLayer(layers[name]);
+            } else {
+                map.removeLayer(layers[name]);
+            }
+        }
+
+        // Initial load
+        loadAllData();
+
+        // Start aircraft tracking (poll every 30s)
+        pollAircraft();
+        setInterval(pollAircraft, 30000);
+
+        // Start vessel tracking (poll every 30s)
+        pollVessels();
+        setInterval(pollVessels, 30000);
+
+        // Refresh every 30 minutes
+        setInterval(loadAllData, 30 * 60 * 1000);
+
+        // WA panel toggle
+        function toggleWaPanel() {
+            const body = document.getElementById('waPanelBody');
+            const arrow = document.getElementById('waArrow');
+            body.classList.toggle('open');
+            arrow.classList.toggle('open');
+        }
+    </script>
+</body>
+</html>
